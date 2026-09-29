@@ -9,8 +9,12 @@ export default async function handler(req,res){
  const tok=await tr.json();if(!tr.ok)return res.status(401).json({error:"Google token refresh failed"});
  const now=new Date(),end=new Date(Date.now()+35*86400000);
  const qp=new URLSearchParams({timeMin:now.toISOString(),timeMax:end.toISOString(),singleEvents:"true",orderBy:"startTime",maxResults:"100",timeZone:"Europe/Stockholm"});
- const gr=await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events?"+qp,{headers:{authorization:"Bearer "+tok.access_token}});
+ const lr=await fetch("https://www.googleapis.com/calendar/v3/users/me/calendarList",{headers:{authorization:"Bearer "+tok.access_token}});
+ const list=await lr.json();if(!lr.ok)return res.status(lr.status).json({error:"Calendar list request failed"});
+ const alex=(list.items||[]).find(x=>/alexander/i.test(x.summary||"")&&/(personal|private)/i.test(x.summary||""))||(list.items||[]).find(x=>/alexander/i.test(x.summary||""));
+ if(!alex)return res.status(404).json({error:"Alexander calendar not found"});
+ const gr=await fetch("https://www.googleapis.com/calendar/v3/calendars/"+encodeURIComponent(alex.id)+"/events?"+qp,{headers:{authorization:"Bearer "+tok.access_token}});
  const data=await gr.json();if(!gr.ok)return res.status(gr.status).json({error:"Calendar request failed"});
  const events=(data.items||[]).filter(e=>e.status!=="cancelled").map(e=>({id:e.id,title:e.summary||"Kalenderhändelse",start:e.start?.dateTime||e.start?.date,end:e.end?.dateTime||e.end?.date,location:e.location||"",allDay:!!e.start?.date}));
- res.status(200).json({events});
+ res.status(200).json({calendar:alex.summary,events});
 }
