@@ -7,7 +7,7 @@ export default async function handler(req,res){
  const tb=new URLSearchParams({client_id:cid,client_secret:sec,refresh_token:rows[0].refresh_token,grant_type:"refresh_token"});
  const tr=await fetch("https://oauth2.googleapis.com/token",{method:"POST",headers:{"content-type":"application/x-www-form-urlencoded"},body:tb});
  const tok=await tr.json();if(!tr.ok)return res.status(401).json({error:"Google token refresh failed"});
- const now=new Date(),end=new Date(Date.now()+35*86400000);
+ const now=new Date(),end=new Date('2027-01-01T00:00:00+01:00');
  const qp=new URLSearchParams({timeMin:now.toISOString(),timeMax:end.toISOString(),singleEvents:"true",orderBy:"startTime",maxResults:"100",timeZone:"Europe/Stockholm"});
  const lr=await fetch("https://www.googleapis.com/calendar/v3/users/me/calendarList",{headers:{authorization:"Bearer "+tok.access_token}});
  const list=await lr.json();if(!lr.ok)return res.status(lr.status).json({error:"Calendar list request failed"});
