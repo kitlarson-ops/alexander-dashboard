@@ -13,8 +13,7 @@ export default async function handler(req,res){
  const list=await lr.json();if(!lr.ok)return res.status(lr.status).json({error:"Calendar list request failed"});
  const alex=(list.items||[]).find(x=>/alexander/i.test(x.summary||"")&&/(personal|private)/i.test(x.summary||""))||(list.items||[]).find(x=>/alexander/i.test(x.summary||""));
  if(!alex)return res.status(404).json({error:"Alexander calendar not found"});
- const gr=await fetch("https://www.googleapis.com/calendar/v3/calendars/"+encodeURIComponent(alex.id)+"/events?"+qp,{headers:{authorization:"Bearer "+tok.access_token}});
- const data=await gr.json();if(!gr.ok)return res.status(gr.status).json({error:"Calendar request failed"});
- const events=(data.items||[]).filter(e=>e.status!=="cancelled").map(e=>({id:e.id,title:e.summary||"Kalenderhändelse",start:e.start?.dateTime||e.start?.date,end:e.end?.dateTime||e.end?.date,location:e.location||"",allDay:!!e.start?.date}));
- res.status(200).json({calendar:alex.summary,events});
+ const school=(list.items||[]).find(x=>/^waldorf school$/i.test(x.summary||''));
+ const getEvents=async cal=>{if(!cal)return[];const r=await fetch("https://www.googleapis.com/calendar/v3/calendars/"+encodeURIComponent(cal.id)+"/events?"+qp,{headers:{authorization:"Bearer "+tok.access_token}}),d=await r.json();if(!r.ok)throw new Error('Calendar request failed');return(d.items||[]).filter(e=>e.status!=="cancelled").map(e=>({id:e.id,title:e.summary||"Kalenderhändelse",start:e.start?.dateTime||e.start?.date,end:e.end?.dateTime||e.end?.date,location:e.location||"",description:e.description||"",allDay:!!e.start?.date}))};
+ try{const [events,schoolEvents]=await Promise.all([getEvents(alex),getEvents(school)]);res.status(200).json({calendar:alex.summary,events,schoolCalendar:school?.summary||null,schoolEvents})}catch(e){res.status(502).json({error:'Calendar request failed'})}
 }
