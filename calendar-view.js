@@ -35,6 +35,18 @@
     date.setUTCDate(date.getUTCDate() + days);
     return date.toISOString().slice(0, 10);
   };
+  // Google event ends are exclusive. At Stockholm midnight the last occupied
+  // calendar day is the previous day, even across DST. This changes only the
+  // date label: timed events retain their actual times and allDay flag.
+  const displayEndDay = e => {
+    if (e.allDay) return addDays(e.end, -1);
+    const end = new Date(e.end);
+    const clock = new Intl.DateTimeFormat('en-GB', {
+      timeZone: TIME_ZONE, hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23'
+    }).format(end);
+    return clock === '00:00:00' && end.getUTCMilliseconds() === 0
+      ? addDays(dayKey(e.end), -1) : dayKey(e.end);
+  };
   const normalizeEvents = events => {
     if (!Array.isArray(events)) throw new Error('Invalid calendar snapshot');
     const result = [], keys = new Map();
@@ -85,7 +97,7 @@
     } catch { /* A denied or corrupt device cache must not hide the saved plan. */ }
     return null;
   };
-  const api = { normalizeEvents, fromResponse, forView, fallback, dayKey, addDays, readSnapshot, CACHE_KEY };
+  const api = { normalizeEvents, fromResponse, forView, fallback, dayKey, addDays, readSnapshot, CACHE_KEY, displayEndDay };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof document === 'undefined') return;
 
@@ -115,7 +127,7 @@
     };
     let dateLabel = e.dateLabel || fmtDate(e.start);
     if (!e.dateLabel && e.allDay && e.end > addDays(e.start, 1)) dateLabel += ' – ' + fmtDate(addDays(e.end, -1));
-    if (!e.dateLabel && !e.allDay && dayKey(e.start) !== dayKey(e.end)) dateLabel += ' – ' + fmtDate(e.end);
+    if (!e.dateLabel && !e.allDay && dayKey(e.start) < displayEndDay(e)) dateLabel += ' – ' + fmtDate(displayEndDay(e));
     add('div', 'day', dateLabel);
     add('strong', '', e.title);
     const time = e.timeLabel ?? (e.allDay ? 'Heldag' : fmtTime(e.start) + '–' + fmtTime(e.end));

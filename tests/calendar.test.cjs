@@ -181,3 +181,27 @@ test('client timed multi-day label includes both dates', async () => {
   const label = app.ids.fourEvents.children[0].children[0].textContent;
   assert(label.includes('11')); assert(label.includes('12'));
 });
+
+test('exclusive midnight date labels preserve dates, times and DST', async () => {
+  const cases = [
+    ['Gothenburg', '2026-11-05T00:00:00+01:00', '2026-11-06T00:00:00+01:00', '2026-11-05', '00:00–00:00'],
+    ['PRAO', '2026-11-16T00:00:00+01:00', '2026-11-21T00:00:00+01:00', '2026-11-20', '00:00–00:00'],
+    ['DST autumn', '2026-10-24T00:00:00+02:00', '2026-10-26T00:00:00+01:00', '2026-10-25', '00:00–00:00'],
+    ['Late finish', '2026-11-05T20:00:00+01:00', '2026-11-06T00:00:00+01:00', '2026-11-05', '20:00–00:00'],
+    ['Overnight', '2026-11-05T23:00:00+01:00', '2026-11-06T07:00:00+01:00', '2026-11-06', '23:00–07:00']
+  ];
+  for (const [title, start, end, lastDay, time] of cases) {
+    const event = e(title, start, end, { allDay: false });
+    assert.equal(model.displayEndDay(event), lastDay, title);
+    const app = await mountCalendar({ status: 200, data: { events: [event], schoolEvents: [], syncedAt: now.toISOString() } });
+    const card = app.ids.termEvents.children[0];
+    const fmt = day => new Intl.DateTimeFormat('sv-SE', {weekday:'long', day:'numeric', month:'short', timeZone:'Europe/Stockholm'}).format(new Date(day+'T12:00:00Z'));
+    const firstDay = model.dayKey(start);
+    assert.equal(card.children[0].textContent, fmt(firstDay)+(firstDay < lastDay ? ' – '+fmt(lastDay) : ''), title);
+    assert.equal(card.children[2].textContent, time, title);
+    assert.equal(event.allDay, false);
+  }
+  assert.equal(model.displayEndDay(e('All day', '2026-11-05', '2026-11-06')), '2026-11-05');
+  assert.equal(model.displayEndDay(e('UTC midnight is Stockholm 01', '2026-11-05T20:00:00Z', '2026-11-06T00:00:00Z', {allDay:false})), '2026-11-06');
+  assert.equal(model.displayEndDay(e('Spring DST', '2026-03-28T00:00:00+01:00', '2026-03-30T00:00:00+02:00', {allDay:false})), '2026-03-29');
+});
